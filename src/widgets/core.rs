@@ -128,10 +128,59 @@ pub fn get_theme() -> Theme {
 // WIDGET TRAIT
 // =============================================================================
 
+use crate::layout::{BoxConstraints, Size, Offset};
+
 /// Core trait that all UI components implement
+/// 
+/// # Layout Protocol
+/// 
+/// 1. Parent calls `layout()` or `layout_with_constraints()` on child
+/// 2. Child determines its size based on constraints
+/// 3. Parent calls `set_position()` to place child
+/// 4. Parent calls `render()` which uses position + size
+/// 
+/// # Migration Path
+/// 
+/// The old `layout(origin, max_size) -> Vec2` is preserved for backwards
+/// compatibility. Widgets can implement `layout_with_constraints` for the
+/// new Flutter-style layout protocol.
 pub trait Widget {
-    /// Calculate layout and return the size used
+    /// Legacy layout method - calculates layout AND sets position
+    /// 
+    /// This is the original API. New widgets should prefer implementing
+    /// `layout_with_constraints` and `set_position` separately.
     fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2;
+    
+    /// New constraint-based layout - returns size without setting position
+    /// 
+    /// Override this for proper constraint-based layout. Default impl
+    /// delegates to the old `layout()` method for backwards compatibility.
+    fn layout_with_constraints(&mut self, constraints: BoxConstraints) -> Size {
+        // Default: convert to old API
+        let max_size = Vec2::new(
+            if constraints.max_width.is_finite() { constraints.max_width } else { 10000.0 },
+            if constraints.max_height.is_finite() { constraints.max_height } else { 10000.0 },
+        );
+        let result = self.layout(Vec2::ZERO, max_size);
+        Size::new(result.x, result.y)
+    }
+    
+    /// Set the widget's position (called by parent after layout)
+    /// 
+    /// Default implementation does nothing. Widgets should store this.
+    fn set_position(&mut self, _position: Offset) {
+        // Default: no-op for backwards compat
+    }
+    
+    /// Get the widget's current position
+    fn get_position(&self) -> Offset {
+        Offset::ZERO
+    }
+    
+    /// Get the widget's current size (after layout)
+    fn get_size(&self) -> Size {
+        Size::ZERO
+    }
     
     /// Handle input events, return true if consumed
     fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool;
@@ -141,6 +190,22 @@ pub trait Widget {
     
     /// Render the widget
     fn render(&self, renderer: &mut GlassRenderer);
+    
+    /// Get intrinsic width given a height (for text-like widgets)
+    /// 
+    /// Returns the width this widget would prefer if given unlimited
+    /// horizontal space but constrained to the given height.
+    fn intrinsic_width(&self, _height: f32) -> Option<f32> {
+        None // Default: no intrinsic width preference
+    }
+    
+    /// Get intrinsic height given a width (for wrapping content)
+    /// 
+    /// Returns the height this widget would need if constrained to
+    /// the given width.
+    fn intrinsic_height(&self, _width: f32) -> Option<f32> {
+        None // Default: no intrinsic height preference
+    }
 }
 
 // =============================================================================

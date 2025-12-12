@@ -41,10 +41,51 @@ struct GlyphInfo {
 }
 
 impl TextRenderer {
+    /// Try to load font from various system paths, with embedded fallback
+    fn load_system_font() -> FontVec {
+        // Font search paths for different platforms
+        let font_paths = [
+            // Windows
+            "C:/Windows/Fonts/segoeui.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+            "C:/Windows/Fonts/tahoma.ttf",
+            // macOS
+            "/System/Library/Fonts/SFPro.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            // Linux
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            "/usr/share/fonts/noto/NotoSans-Regular.ttf",
+        ];
+        
+        // Try each path in order
+        for path in &font_paths {
+            if let Ok(data) = std::fs::read(path) {
+                if let Ok(font) = FontVec::try_from_vec(data) {
+                    log::info!("Loaded font from: {}", path);
+                    return font;
+                }
+            }
+        }
+        
+        // Fallback: embedded minimal font (Inter Regular subset)
+        // Using a simple fallback message font - in production you'd embed a real font
+        log::warn!("No system font found, using embedded fallback");
+        
+        // For now, panic with helpful message - in production, embed a font file
+        panic!(
+            "No suitable font found! Please ensure a font exists at one of:\n{}",
+            font_paths.join("\n")
+        );
+    }
+    
     pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, bg_bind_group_layout: &wgpu::BindGroupLayout) -> Self {
-        // Load font - assume Segoe UI exists on Windows
-        let font_data = std::fs::read("C:/Windows/Fonts/segoeui.ttf").expect("Failed to load generic font");
-        let font = FontVec::try_from_vec(font_data).expect("Error parsing font");
+        // Load font with cross-platform fallback
+        let font = Self::load_system_font();
 
         // Create Atlas Texture (R8Unorm)
         let atlas_size = 1024;
@@ -268,5 +309,58 @@ impl TextRenderer {
     
     pub fn clear(&mut self) {
         self.queue_buffer.clear();
+    }
+    
+    /// Measure text dimensions without rendering
+    /// Returns (width, height) in pixels
+    pub fn measure_text(&self, text: &str, scale: f32) -> TextMetrics {
+        let px_scale = PxScale::from(scale);
+        let scaled_font = self.font.as_scaled(px_scale);
+        
+        let mut width = 0.0f32;
+        let height = scaled_font.ascent() - scaled_font.descent();
+        
+        for c in text.chars() {
+            if c.is_control() { continue; }
+            let glyph_id = self.font.glyph_id(c);
+            width += scaled_font.h_advance(glyph_id);
+        }
+        
+        TextMetrics {
+            width,
+            height,
+            ascent: scaled_font.ascent(),
+            descent: scaled_font.descent(),
+            line_height: height * 1.2, // Standard 120% line height
+        }
+    }
+    
+    /// Get line height for given font scale
+    pub fn line_height(&self, scale: f32) -> f32 {
+        let px_scale = PxScale::from(scale);
+        let scaled_font = self.font.as_scaled(px_scale);
+        (scaled_font.ascent() - scaled_font.descent()) * 1.2
+    }
+}
+
+/// Text measurement results
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TextMetrics {
+    /// Total width of text in pixels
+    pub width: f32,
+    /// Height from ascent to descent
+    pub height: f32,
+    /// Distance from baseline to top
+    pub ascent: f32,
+    /// Distance from baseline to bottom (negative)
+    pub descent: f32,
+    /// Recommended line height (height * 1.2)
+    pub line_height: f32,
+}
+
+impl TextMetrics {
+    /// Get size as (width, height) tuple
+    pub fn size(&self) -> (f32, f32) {
+        (self.width, self.height)
     }
 }

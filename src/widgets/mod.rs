@@ -11,6 +11,7 @@ mod containers;
 mod overlays;
 mod advanced;
 mod data;
+mod media;
 
 // Re-export core types
 pub use core::{Theme, Widget, set_theme, get_theme, easing};
@@ -33,7 +34,7 @@ pub use premium::{
 
 // Re-export input widgets
 pub use input::{
-    TextInput, Dropdown,
+    TextInput, Dropdown, DatePicker, SimpleDate,
 };
 
 // Re-export container widgets
@@ -56,4 +57,9 @@ pub use data::{
     Table, TableColumn, TableRow,
     ListView, ListItem,
     TreeView, TreeNode,
+};
+
+// Re-export media widgets
+pub use media::{
+    Image, ImageSource, BoxFit, Icon,
 };

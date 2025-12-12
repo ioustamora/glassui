@@ -5,6 +5,7 @@
 use glam::{Vec2, Vec4};
 use winit::event::{ElementState, MouseButton};
 use crate::renderer::GlassRenderer;
+use crate::layout::{BoxConstraints, Size, Offset, EdgeInsets};
 use super::core::{Widget, get_theme};
 
 // =============================================================================
@@ -12,6 +13,11 @@ use super::core::{Widget, get_theme};
 // =============================================================================
 
 /// Interactive button with hover/press animations
+/// 
+/// # Layout Behavior
+/// - Has intrinsic size based on text width + padding
+/// - Respects min/max constraints
+/// - Default min size: 80x36
 pub struct Button {
     pub position: Vec2,
     pub size: Vec2,
@@ -22,6 +28,12 @@ pub struct Button {
     pub press_t: f32,
     pub on_click: Option<Box<dyn FnMut()>>,
     pub corner_radius: f32,
+    /// Padding inside the button
+    pub padding: EdgeInsets,
+    /// Minimum width (0 = use intrinsic)
+    pub min_width: f32,
+    /// Minimum height (0 = use intrinsic)
+    pub min_height: f32,
 }
 
 impl Button {
@@ -36,6 +48,9 @@ impl Button {
             press_t: 0.0,
             on_click: None,
             corner_radius: 8.0,
+            padding: EdgeInsets::symmetric(24.0, 12.0),
+            min_width: 80.0,
+            min_height: 36.0,
         }
     }
     
@@ -48,13 +63,67 @@ impl Button {
         self.corner_radius = radius;
         self
     }
+    
+    pub fn with_padding(mut self, padding: EdgeInsets) -> Self {
+        self.padding = padding;
+        self
+    }
+    
+    pub fn with_min_size(mut self, width: f32, height: f32) -> Self {
+        self.min_width = width;
+        self.min_height = height;
+        self
+    }
+    
+    /// Calculate intrinsic size based on text
+    fn calculate_intrinsic_size(&self) -> Size {
+        // Approximate text width (10px per character at size 20)
+        let text_width = self.text.len() as f32 * 10.0;
+        let text_height = 20.0;
+        
+        Size::new(
+            (text_width + self.padding.horizontal()).max(self.min_width),
+            (text_height + self.padding.vertical()).max(self.min_height),
+        )
+    }
 }
 
 impl Widget for Button {
-    fn layout(&mut self, origin: Vec2, _max_size: Vec2) -> Vec2 {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
         self.position = origin;
-        self.size = Vec2::new(200.0, 50.0);
+        let intrinsic = self.calculate_intrinsic_size();
+        // Constrain to max_size while respecting intrinsic minimums
+        self.size = Vec2::new(
+            intrinsic.width.min(max_size.x),
+            intrinsic.height.min(max_size.y),
+        );
         self.size
+    }
+    
+    fn layout_with_constraints(&mut self, constraints: BoxConstraints) -> Size {
+        let intrinsic = self.calculate_intrinsic_size();
+        self.size = constraints.constrain(intrinsic).into();
+        Size::new(self.size.x, self.size.y)
+    }
+    
+    fn set_position(&mut self, position: Offset) {
+        self.position = Vec2::new(position.x, position.y);
+    }
+    
+    fn get_position(&self) -> Offset {
+        Offset::new(self.position.x, self.position.y)
+    }
+    
+    fn get_size(&self) -> Size {
+        Size::new(self.size.x, self.size.y)
+    }
+    
+    fn intrinsic_width(&self, _height: f32) -> Option<f32> {
+        Some(self.calculate_intrinsic_size().width)
+    }
+    
+    fn intrinsic_height(&self, _width: f32) -> Option<f32> {
+        Some(self.calculate_intrinsic_size().height)
     }
 
     fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
@@ -131,6 +200,7 @@ impl Widget for Button {
 /// Simple text label
 pub struct Label {
     pub position: Vec2,
+    pub size: Vec2,
     pub text: String,
     pub font_size: f32,
     pub color: Option<Vec4>,
@@ -139,7 +209,8 @@ pub struct Label {
 impl Label {
     pub fn new(text: &str) -> Self {
         Self { 
-            position: Vec2::ZERO, 
+            position: Vec2::ZERO,
+            size: Vec2::ZERO,
             text: text.to_string(),
             font_size: 24.0,
             color: None,
@@ -159,13 +230,51 @@ impl Label {
     pub fn set_text(&mut self, text: &str) {
         self.text = text.to_string();
     }
+    
+    /// Calculate intrinsic size based on text
+    fn calculate_intrinsic_size(&self) -> Size {
+        // Approximate: font_size * 0.5 per character width
+        let width = self.text.len() as f32 * (self.font_size * 0.5);
+        let height = self.font_size;
+        Size::new(width, height)
+    }
 }
 
 impl Widget for Label {
     fn layout(&mut self, origin: Vec2, _max_size: Vec2) -> Vec2 {
         self.position = origin;
-        Vec2::new(self.text.len() as f32 * (self.font_size * 0.5), self.font_size)
+        let intrinsic = self.calculate_intrinsic_size();
+        self.size = Vec2::new(intrinsic.width, intrinsic.height);
+        self.size
     }
+    
+    fn layout_with_constraints(&mut self, constraints: BoxConstraints) -> Size {
+        let intrinsic = self.calculate_intrinsic_size();
+        let constrained = constraints.constrain(intrinsic);
+        self.size = Vec2::new(constrained.width, constrained.height);
+        constrained
+    }
+    
+    fn set_position(&mut self, position: Offset) {
+        self.position = Vec2::new(position.x, position.y);
+    }
+    
+    fn get_position(&self) -> Offset {
+        Offset::new(self.position.x, self.position.y)
+    }
+    
+    fn get_size(&self) -> Size {
+        Size::new(self.size.x, self.size.y)
+    }
+    
+    fn intrinsic_width(&self, _height: f32) -> Option<f32> {
+        Some(self.calculate_intrinsic_size().width)
+    }
+    
+    fn intrinsic_height(&self, _width: f32) -> Option<f32> {
+        Some(self.calculate_intrinsic_size().height)
+    }
+    
     fn handle_event(&mut self, _event: &winit::event::Event<()>, _mouse_pos: Vec2) -> bool { false }
     fn update(&mut self, _dt: f32) {}
     fn render(&self, renderer: &mut GlassRenderer) {

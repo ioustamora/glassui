@@ -4,10 +4,18 @@ pub mod widgets;      // New modular widget system
 pub mod text;
 pub mod state;
 pub mod property;
+pub mod layout;       // New constraint-based layout primitives
+pub mod focus;        // Focus management and keyboard navigation
 
 use winit::window::Window;
 // use winit::event::Event;
 pub use glam::{Vec2, Vec4, Mat4};
+
+// Re-export layout primitives for convenience
+pub use layout::{Size, Offset, BoxConstraints, EdgeInsets, LayoutResult};
+
+// Re-export focus primitives
+pub use focus::{FocusId, FocusManager, FocusNode, Focusable};
 
 pub struct GlassContext {
     pub renderer: renderer::GlassRenderer,
