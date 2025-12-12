@@ -1,3 +1,7 @@
+// Macros must be declared first for visibility in other modules
+#[macro_use]
+pub mod macros;       // Declarative macros for widget building
+
 pub mod renderer;
 pub mod widget;       // Legacy - will be deprecated
 pub mod widgets;      // New modular widget system
@@ -6,6 +10,10 @@ pub mod state;
 pub mod property;
 pub mod layout;       // New constraint-based layout primitives
 pub mod focus;        // Focus management and keyboard navigation
+pub mod clipboard;    // Clipboard copy/paste support
+pub mod accessibility; // Screen reader and assistive technology support
+pub mod animation;    // Animation system with curves and springs
+pub mod style;        // CSS-like styling system
 
 use winit::window::Window;
 // use winit::event::Event;
@@ -16,6 +24,15 @@ pub use layout::{Size, Offset, BoxConstraints, EdgeInsets, LayoutResult};
 
 // Re-export focus primitives
 pub use focus::{FocusId, FocusManager, FocusNode, Focusable};
+
+// Re-export clipboard functions
+pub use clipboard::{copy_to_clipboard, paste_from_clipboard};
+
+// Re-export animation types
+pub use animation::{AnimationController, AnimationStatus, Curve, Tween, SpringAnimation};
+
+// Re-export style types
+pub use style::{WidgetStyle, ButtonVariant, StyleSheet, SizeVariant};
 
 pub struct GlassContext {
     pub renderer: renderer::GlassRenderer,

@@ -73,11 +73,61 @@ impl Widget for TextInput {
             },
             winit::event::Event::WindowEvent { event: winit::event::WindowEvent::KeyboardInput { event: key_event, .. }, .. } => {
                 if self.focused && key_event.state.is_pressed() {
+                    // Handle backspace
                     if let winit::keyboard::Key::Named(winit::keyboard::NamedKey::Backspace) = key_event.logical_key {
                         self.text.pop();
                         return true;
                     }
                     
+                    // Check for Ctrl modifier (for clipboard shortcuts)
+                    let ctrl_held = key_event.text.is_none() || {
+                        // Check if this is a control character
+                        if let Some(text) = &key_event.text {
+                            text.chars().next().map(|c| c.is_control()).unwrap_or(false)
+                        } else {
+                            false
+                        }
+                    };
+                    
+                    // Handle Ctrl+C (copy), Ctrl+V (paste), Ctrl+X (cut)
+                    if let winit::keyboard::Key::Character(ref c) = key_event.logical_key {
+                        match c.as_str() {
+                            "c" if ctrl_held => {
+                                // Copy all text
+                                if !self.text.is_empty() {
+                                    let _ = crate::clipboard::copy_to_clipboard(&self.text);
+                                }
+                                return true;
+                            }
+                            "v" if ctrl_held => {
+                                // Paste at end
+                                if let Ok(pasted) = crate::clipboard::paste_from_clipboard() {
+                                    // Filter to printable characters
+                                    let filtered: String = pasted.chars()
+                                        .filter(|c| !c.is_control() || *c == '\n')
+                                        .take(1000) // Limit paste length
+                                        .collect();
+                                    self.text.push_str(&filtered);
+                                }
+                                return true;
+                            }
+                            "x" if ctrl_held => {
+                                // Cut all text
+                                if !self.text.is_empty() {
+                                    let _ = crate::clipboard::copy_to_clipboard(&self.text);
+                                    self.text.clear();
+                                }
+                                return true;
+                            }
+                            "a" if ctrl_held => {
+                                // Select all (for future text selection support)
+                                return true;
+                            }
+                            _ => {}
+                        }
+                    }
+                    
+                    // Regular text input
                     if let Some(text) = &key_event.text {
                         if let Some(c) = text.chars().next() {
                             if !c.is_control() {
