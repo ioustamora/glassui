@@ -1,6 +1,9 @@
 pub mod renderer;
-pub mod widget;
+pub mod widget;       // Legacy - will be deprecated
+pub mod widgets;      // New modular widget system
 pub mod text;
+pub mod state;
+pub mod property;
 
 use winit::window::Window;
 // use winit::event::Event;

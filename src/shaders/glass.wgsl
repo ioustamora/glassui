@@ -1,7 +1,8 @@
 struct VertexInput {
     @location(0) position: vec2<f32>, 
     @location(1) size: vec2<f32>,     
-    @location(2) color: vec4<f32>,    
+    @location(2) color: vec4<f32>,
+    @location(3) corner_radius: f32,
 };
 
 struct VertexOutput {
@@ -9,6 +10,7 @@ struct VertexOutput {
     @location(0) color: vec4<f32>,
     @location(1) uv: vec2<f32>, // 0..1 relative to rect
     @location(2) size: vec2<f32>, // Pixel size of the rect
+    @location(3) corner_radius: f32,
 };
 
 struct Uniforms {
@@ -41,6 +43,7 @@ fn vs_main(
     out.color = input.color;
     out.uv = pos; 
     out.size = input.size;
+    out.corner_radius = input.corner_radius;
     return out;
 }
 
@@ -55,10 +58,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let p = center_uv * in.size;
     let half_size = in.size * 0.5;
     
-    let r = min(10.0, min(half_size.x, half_size.y));
+    // Use per-instance corner radius (0 = sharp, otherwise rounded)
+    let r = min(in.corner_radius, min(half_size.x, half_size.y));
     let dist = sd_rounded_box(p, half_size, r);
     
-    let alpha_mask = 1.0 - smoothstep(0.0, 1.0, dist);
+    let alpha_mask = 1.0 - smoothstep(-0.5, 0.5, dist);
     
     if (alpha_mask <= 0.0) {
         discard;

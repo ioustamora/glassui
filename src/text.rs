@@ -29,7 +29,8 @@ struct FontAtlas {
     size: u32,
     cursor: (u32, u32), // x, y
     row_height: u32,
-    glyphs: HashMap<char, GlyphInfo>,
+    /// Key is (char, scale_x10) to cache glyphs at different sizes
+    glyphs: HashMap<(char, u32), GlyphInfo>,
 }
 
 #[derive(Clone, Copy)]
@@ -143,17 +144,21 @@ impl TextRenderer {
         let px_scale = PxScale::from(scale);
         let scaled_font = self.font.as_scaled(px_scale);
         
+        // Round scale for cache key (multiply by 10 to preserve some precision)
+        let scale_key = (scale * 10.0) as u32;
+        
         let v_metrics = scaled_font.ascent();
         y += v_metrics; 
 
         for c in text.chars() {
             if c.is_control() { continue; }
             
-            if !self.atlas.glyphs.contains_key(&c) {
-                 self.rasterize_glyph(device, queue, c, px_scale);
+            let cache_key = (c, scale_key);
+            if !self.atlas.glyphs.contains_key(&cache_key) {
+                 self.rasterize_glyph(device, queue, c, px_scale, scale_key);
             }
             
-            if let Some(info) = self.atlas.glyphs.get(&c) {
+            if let Some(info) = self.atlas.glyphs.get(&cache_key) {
                 let w = info.screen_rect[2];
                 let h = info.screen_rect[3];
                 let gx = x + info.screen_rect[0];
@@ -178,9 +183,10 @@ impl TextRenderer {
         }
     }
     
-    fn rasterize_glyph(&mut self, _device: &wgpu::Device, queue: &wgpu::Queue, c: char, scale: PxScale) {
+    fn rasterize_glyph(&mut self, _device: &wgpu::Device, queue: &wgpu::Queue, c: char, scale: PxScale, scale_key: u32) {
         let glyph = self.font.glyph_id(c).with_scale_and_position(scale, Point { x: 0.0, y: 0.0 });
         let scaled_font = self.font.as_scaled(scale);
+        let cache_key = (c, scale_key);
         
         if let Some(outlined) = self.font.outline_glyph(glyph) {
             let bounds = outlined.px_bounds();
@@ -225,7 +231,7 @@ impl TextRenderer {
                     let u1 = (self.atlas.cursor.0 + w) as f32 / self.atlas.size as f32;
                     let v1 = (self.atlas.cursor.1 + h) as f32 / self.atlas.size as f32;
                     
-                    self.atlas.glyphs.insert(c, GlyphInfo {
+                    self.atlas.glyphs.insert(cache_key, GlyphInfo {
                         uv_rect: [u0, v0, u1, v1],
                         screen_rect: [bounds.min.x, bounds.min.y, w as f32, h as f32],
                         advance: scaled_font.h_advance(self.font.glyph_id(c)),
@@ -236,7 +242,7 @@ impl TextRenderer {
                 }
             }
         } else {
-             self.atlas.glyphs.insert(c, GlyphInfo {
+             self.atlas.glyphs.insert(cache_key, GlyphInfo {
                 uv_rect: [0.0; 4],
                 screen_rect: [0.0; 4],
                 advance: scaled_font.h_advance(self.font.glyph_id(c)),

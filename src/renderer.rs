@@ -49,6 +49,10 @@ pub struct GlassRenderer {
     // Tooltips
     tooltips: Vec<(String, crate::Vec2)>,
     
+    // Overlays (dropdowns, popups - render on top of everything)
+    overlay_rects: Vec<GlassInstance>,
+    overlay_texts: Vec<(String, [f32; 2], f32, [f32; 4])>,
+    
     // Text
     text_renderer: crate::text::TextRenderer,
 }
@@ -65,6 +69,8 @@ pub struct GlassInstance {
     pub position: [f32; 2],
     pub size:  [f32; 2],
     pub color: [f32; 4],
+    pub corner_radius: f32,
+    pub _padding: [f32; 3],  // Align to 16 bytes
 }
 
 #[repr(C)]
@@ -276,9 +282,10 @@ impl GlassRenderer {
             array_stride: std::mem::size_of::<GlassInstance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
-                wgpu::VertexAttribute { offset: 0, shader_location: 0, format: wgpu::VertexFormat::Float32x2 }, 
-                wgpu::VertexAttribute { offset: 8, shader_location: 1, format: wgpu::VertexFormat::Float32x2 }, 
-                wgpu::VertexAttribute { offset: 16, shader_location: 2, format: wgpu::VertexFormat::Float32x4 }, 
+                wgpu::VertexAttribute { offset: 0, shader_location: 0, format: wgpu::VertexFormat::Float32x2 },  // position
+                wgpu::VertexAttribute { offset: 8, shader_location: 1, format: wgpu::VertexFormat::Float32x2 },  // size
+                wgpu::VertexAttribute { offset: 16, shader_location: 2, format: wgpu::VertexFormat::Float32x4 }, // color
+                wgpu::VertexAttribute { offset: 32, shader_location: 3, format: wgpu::VertexFormat::Float32 },   // corner_radius
             ],
         };
 
@@ -354,6 +361,8 @@ impl GlassRenderer {
             batches: Vec::new(),
             current_scissor: None,
             tooltips: Vec::new(),
+            overlay_rects: Vec::new(),
+            overlay_texts: Vec::new(),
         }
     }
     
@@ -437,7 +446,20 @@ impl GlassRenderer {
     // --- Scissor Management ---
     pub fn set_scissor(&mut self, rect: [u32; 4]) {
          self.finish_current_batch();
-         self.current_scissor = Some(rect);
+         
+         // Clamp scissor rect to render target bounds to prevent validation errors
+         let max_w = self.size.width;
+         let max_h = self.size.height;
+         
+         // Ensure x,y are within bounds
+         let x = rect[0].min(max_w.saturating_sub(1));
+         let y = rect[1].min(max_h.saturating_sub(1));
+         
+         // Clamp width/height so rect doesn't extend past bounds
+         let w = rect[2].min(max_w.saturating_sub(x)).max(1);
+         let h = rect[3].min(max_h.saturating_sub(y)).max(1);
+         
+         self.current_scissor = Some([x, y, w, h]);
     }
     
     pub fn clear_scissor(&mut self) {
@@ -462,10 +484,21 @@ impl GlassRenderer {
     }
 
     pub fn draw_rect(&mut self, pos: crate::Vec2, size: crate::Vec2, color: crate::Vec4) {
+        self.draw_rounded_rect(pos, size, color, 0.0);
+    }
+    
+    /// Draw a rectangle with rounded corners (macOS/iOS quality)
+    pub fn draw_rounded_rect(&mut self, pos: crate::Vec2, size: crate::Vec2, color: crate::Vec4, radius: f32) {
+        // Clamp radius to half of smallest dimension
+        let max_radius = size.x.min(size.y) * 0.5;
+        let clamped_radius = radius.min(max_radius).max(0.0);
+        
         self.instances.push(GlassInstance {
            position: [pos.x, pos.y],
            size: [size.x, size.y],
            color: [color.x, color.y, color.z, color.w],
+           corner_radius: clamped_radius,
+           _padding: [0.0, 0.0, 0.0],
         });
     }
 
@@ -476,6 +509,26 @@ impl GlassRenderer {
     pub fn draw_tooltip(&mut self, text: &str, pos: crate::Vec2) {
         self.tooltips.push((text.to_string(), pos));
     }
+    
+    /// Queue a rectangle to render on the overlay layer (on top of everything)
+    /// Use this for dropdown popups, context menus, etc.
+    pub fn draw_overlay_rect(&mut self, pos: crate::Vec2, size: crate::Vec2, color: crate::Vec4, radius: f32) {
+        let max_radius = size.x.min(size.y) * 0.5;
+        let clamped_radius = radius.min(max_radius).max(0.0);
+        
+        self.overlay_rects.push(GlassInstance {
+            position: [pos.x, pos.y],
+            size: [size.x, size.y],
+            color: [color.x, color.y, color.z, color.w],
+            corner_radius: clamped_radius,
+            _padding: [0.0, 0.0, 0.0],
+        });
+    }
+    
+    /// Queue text to render on the overlay layer (on top of everything)
+    pub fn draw_overlay_text(&mut self, text: &str, pos: crate::Vec2, scale: f32, color: crate::Vec4) {
+        self.overlay_texts.push((text.to_string(), [pos.x, pos.y], scale, [color.x, color.y, color.z, color.w]));
+    }
 
     pub fn render(&mut self, root_widget: &mut dyn Widget) {
         self.instances.clear();
@@ -483,6 +536,8 @@ impl GlassRenderer {
         self.batches.clear();
         self.current_scissor = None;
         self.tooltips.clear();
+        self.overlay_rects.clear();
+        self.overlay_texts.clear();
         
         root_widget.render(self);
         self.finish_current_batch(); // Push last batch
@@ -499,8 +554,34 @@ impl GlassRenderer {
         }
         
         self.text_renderer.prepare(&self.queue);
+        
+        // Queue overlay text (will be rendered after main pass)
+        for (text, pos, scale, color) in &self.overlay_texts {
+            self.text_renderer.draw_text(&self.device, &self.queue, text, *pos, *scale, *color);
+        }
+        self.text_renderer.prepare(&self.queue);
 
-        let output = self.surface.get_current_texture().unwrap();
+        // Guard against zero or very small window sizes
+        if self.size.width < 2 || self.size.height < 2 {
+            return;
+        }
+
+        // Handle surface texture acquisition (can fail during resize/minimize)
+        let output = match self.surface.get_current_texture() {
+            Ok(texture) => texture,
+            Err(wgpu::SurfaceError::Lost) => {
+                self.surface.configure(&self.device, &self.config);
+                return;
+            }
+            Err(wgpu::SurfaceError::OutOfMemory) => {
+                log::error!("Out of GPU memory");
+                return;
+            }
+            Err(e) => {
+                log::warn!("Surface error: {:?}, skipping frame", e);
+                return;
+            }
+        };
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -537,6 +618,18 @@ impl GlassRenderer {
              compute_pass.set_bind_group(0, &self.blur_bind_groups[1], &[]);
              compute_pass.dispatch_workgroups((width + 15) / 16, (height + 15) / 16, 1);
         }
+
+        // Create overlay buffer BEFORE the render pass scope (buffer must outlive render_pass)
+        let overlay_buffer = if !self.overlay_rects.is_empty() {
+            let overlay_bytes = bytemuck::cast_slice(&self.overlay_rects);
+            Some(self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Overlay Buffer"),
+                contents: overlay_bytes,
+                usage: wgpu::BufferUsages::VERTEX,
+            }))
+        } else {
+            None
+        };
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -592,32 +685,31 @@ impl GlassRenderer {
                  }
             }
             
-            // Reset scissor for any follow-up rendering
+            // Reset scissor for overlay rendering
             render_pass.set_scissor_rect(0, 0, self.size.width, self.size.height);
+            
+            // --- Draw Overlay Rects (dropdowns, popups - on top of everything) ---
+            if let Some(ref buffer) = overlay_buffer {
+                render_pass.set_pipeline(&self.glass_pipeline);
+                render_pass.set_bind_group(0, &self.bg_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.glass_texture_bind_group, &[]);
+                render_pass.set_vertex_buffer(0, buffer.slice(..));
+                render_pass.draw(0..4, 0..self.overlay_rects.len() as u32);
+            }
+            
+            // --- Draw Overlay Text ---
+            let main_text_count = self.text_renderer.queue_buffer.len() as u32;
+            if main_text_count > 0 {
+                // Overlay text was queued after main text, render remaining
+                let overlay_text_start = self.batches.last()
+                    .map(|b| b.text_range.end)
+                    .unwrap_or(0);
+                    
+                if main_text_count > overlay_text_start {
+                    self.text_renderer.render_range(&mut render_pass, &self.bg_bind_group, overlay_text_start..main_text_count);
+                }
+            }
         }
-        
-        // --- Draw Tooltips (after main render pass, need new pass or immediate draw?) ---
-        // Tooltips are drawn after the render pass ends. We need to queue the draw commands BEFORE ending pass.
-        // Actually, we need to draw them inside the pass. But we don't have text vertices for them yet.
-        // 
-        // HACK: Store tooltip geometry and draw in a SECOND render pass? Expensive.
-        // Better: Queue tooltip text/rect during widget render, but draw them LAST inside the same pass.
-        // Problem: text_renderer.prepare() was called before we knew about tooltips.
-        //
-        // Solution: Draw tooltips using immediate geometry (just rects) and queue text in a separate pass.
-        // OR: Accept the limitation and just draw a rect+text now (simple).
-        //
-        // For now, let's just write the tooltip text directly to a new temp text buffer and render.
-        // This is inefficient but works for demo.
-        //
-        // SIMPLEST: We already queued tooltips. Now we need to draw them.
-        // We can't easily add more text *after* prepare().
-        // Let's just draw rects for now as placeholders.
-        
-        // For a proper impl, we'd need a second text prepare pass. Skip text for now.
-        // OR: We could use the existing draw_rect for a simple tooltip background.
-        //
-        // Let's commit the infrastructure and leave visual polish for later.
         
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
