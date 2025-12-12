@@ -8,6 +8,9 @@ mod controls;
 mod premium;
 mod input;
 mod containers;
+mod overlays;
+mod advanced;
+mod data;
 
 // Re-export core types
 pub use core::{Theme, Widget, set_theme, get_theme, easing};
@@ -38,6 +41,19 @@ pub use containers::{
     ScrollArea, TabBar,
 };
 
-// TODO: Remaining modules
-// mod overlays;   // Modal, Tooltip, ContextMenu
-// mod advanced;   // Draggable, Resizable, DragSource, DropTarget
+// Re-export overlay widgets
+pub use overlays::{
+    Tooltip, MenuItem, ContextMenu, ContextMenuTrigger, Modal,
+};
+
+// Re-export advanced widgets
+pub use advanced::{
+    Draggable, Resizable,
+};
+
+// Re-export data widgets
+pub use data::{
+    Table, TableColumn, TableRow,
+    ListView, ListItem,
+    TreeView, TreeNode,
+};
