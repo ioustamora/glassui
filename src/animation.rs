@@ -553,6 +553,266 @@ impl AnimatedValue {
 }
 
 // =============================================================================
+// ANIMATION SEQUENCE (Staggered Animations)
+// =============================================================================
+
+/// Runs animations in sequence, one after another
+/// 
+/// # Example
+/// ```rust
+/// let mut seq = AnimationSequence::new()
+///     .then(AnimationController::new(Duration::from_millis(200)))
+///     .then(AnimationController::new(Duration::from_millis(300)));
+/// 
+/// seq.start();
+/// // First animation runs, then second...
+/// ```
+pub struct AnimationSequence {
+    animations: Vec<AnimationController>,
+    current_index: usize,
+    status: AnimationStatus,
+    /// Delay between each animation
+    stagger_delay: Duration,
+    stagger_elapsed: f32,
+}
+
+impl AnimationSequence {
+    pub fn new() -> Self {
+        Self {
+            animations: Vec::new(),
+            current_index: 0,
+            status: AnimationStatus::Idle,
+            stagger_delay: Duration::ZERO,
+            stagger_elapsed: 0.0,
+        }
+    }
+    
+    /// Add an animation to the sequence
+    pub fn then(mut self, animation: AnimationController) -> Self {
+        self.animations.push(animation);
+        self
+    }
+    
+    /// Set stagger delay between animations
+    pub fn with_stagger(mut self, delay: Duration) -> Self {
+        self.stagger_delay = delay;
+        self
+    }
+    
+    /// Start the sequence
+    pub fn start(&mut self) {
+        if !self.animations.is_empty() {
+            self.current_index = 0;
+            self.status = AnimationStatus::Forward;
+            self.stagger_elapsed = 0.0;
+            self.animations[0].forward();
+        }
+    }
+    
+    /// Reset sequence to beginning
+    pub fn reset(&mut self) {
+        self.current_index = 0;
+        self.status = AnimationStatus::Idle;
+        for anim in &mut self.animations {
+            anim.reset();
+        }
+    }
+    
+    /// Update the sequence
+    pub fn update(&mut self, dt: f32) {
+        if self.status != AnimationStatus::Forward {
+            return;
+        }
+        
+        if self.current_index >= self.animations.len() {
+            self.status = AnimationStatus::Completed;
+            return;
+        }
+        
+        // Handle stagger delay
+        if self.stagger_delay > Duration::ZERO && self.current_index > 0 {
+            if self.stagger_elapsed < self.stagger_delay.as_secs_f32() {
+                self.stagger_elapsed += dt;
+                return;
+            }
+        }
+        
+        // Update current animation
+        let anim = &mut self.animations[self.current_index];
+        anim.update(dt);
+        
+        // Move to next when done
+        if anim.is_completed() {
+            self.current_index += 1;
+            self.stagger_elapsed = 0.0;
+            if self.current_index < self.animations.len() {
+                self.animations[self.current_index].forward();
+            } else {
+                self.status = AnimationStatus::Completed;
+            }
+        }
+    }
+    
+    /// Get progress of current animation (0.0 to 1.0)
+    pub fn current_value(&self) -> f32 {
+        if self.current_index < self.animations.len() {
+            self.animations[self.current_index].value()
+        } else {
+            1.0
+        }
+    }
+    
+    /// Get overall progress (0.0 to 1.0)
+    pub fn overall_progress(&self) -> f32 {
+        if self.animations.is_empty() {
+            return 1.0;
+        }
+        
+        let completed = self.current_index as f32;
+        let current = if self.current_index < self.animations.len() {
+            self.animations[self.current_index].progress()
+        } else {
+            0.0
+        };
+        
+        (completed + current) / self.animations.len() as f32
+    }
+    
+    pub fn is_completed(&self) -> bool {
+        self.status == AnimationStatus::Completed
+    }
+    
+    pub fn is_animating(&self) -> bool {
+        self.status == AnimationStatus::Forward
+    }
+}
+
+impl Default for AnimationSequence {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
+// ANIMATION GROUP (Parallel Animations)
+// =============================================================================
+
+/// Runs multiple animations in parallel
+pub struct AnimationGroup {
+    animations: Vec<AnimationController>,
+    status: AnimationStatus,
+}
+
+impl AnimationGroup {
+    pub fn new() -> Self {
+        Self {
+            animations: Vec::new(),
+            status: AnimationStatus::Idle,
+        }
+    }
+    
+    /// Add an animation to the group
+    pub fn add(mut self, animation: AnimationController) -> Self {
+        self.animations.push(animation);
+        self
+    }
+    
+    /// Start all animations
+    pub fn start(&mut self) {
+        self.status = AnimationStatus::Forward;
+        for anim in &mut self.animations {
+            anim.forward();
+        }
+    }
+    
+    /// Update all animations
+    pub fn update(&mut self, dt: f32) {
+        if self.status != AnimationStatus::Forward {
+            return;
+        }
+        
+        let mut all_done = true;
+        for anim in &mut self.animations {
+            anim.update(dt);
+            if !anim.is_completed() {
+                all_done = false;
+            }
+        }
+        
+        if all_done {
+            self.status = AnimationStatus::Completed;
+        }
+    }
+    
+    /// Get value of specific animation
+    pub fn value(&self, index: usize) -> f32 {
+        self.animations.get(index).map(|a| a.value()).unwrap_or(0.0)
+    }
+    
+    pub fn is_completed(&self) -> bool {
+        self.status == AnimationStatus::Completed
+    }
+}
+
+impl Default for AnimationGroup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
+// DELAYED ANIMATION
+// =============================================================================
+
+/// Wrapper that adds a delay before an animation starts
+pub struct DelayedAnimation {
+    animation: AnimationController,
+    delay: Duration,
+    elapsed: f32,
+    started: bool,
+}
+
+impl DelayedAnimation {
+    pub fn new(delay: Duration, animation: AnimationController) -> Self {
+        Self {
+            animation,
+            delay,
+            elapsed: 0.0,
+            started: false,
+        }
+    }
+    
+    pub fn start(&mut self) {
+        self.elapsed = 0.0;
+        self.started = false;
+    }
+    
+    pub fn update(&mut self, dt: f32) {
+        if !self.started {
+            self.elapsed += dt;
+            if self.elapsed >= self.delay.as_secs_f32() {
+                self.started = true;
+                self.animation.forward();
+            }
+        } else {
+            self.animation.update(dt);
+        }
+    }
+    
+    pub fn value(&self) -> f32 {
+        if self.started {
+            self.animation.value()
+        } else {
+            0.0
+        }
+    }
+    
+    pub fn is_completed(&self) -> bool {
+        self.started && self.animation.is_completed()
+    }
+}
+
+// =============================================================================
 // TESTS
 // =============================================================================
 

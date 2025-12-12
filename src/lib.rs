@@ -14,6 +14,8 @@ pub mod clipboard;    // Clipboard copy/paste support
 pub mod accessibility; // Screen reader and assistive technology support
 pub mod animation;    // Animation system with curves and springs
 pub mod style;        // CSS-like styling system
+pub mod commands;     // Undo/redo command pattern
+pub mod gestures;     // Touch/pen gesture recognition
 
 use winit::window::Window;
 // use winit::event::Event;
@@ -29,10 +31,19 @@ pub use focus::{FocusId, FocusManager, FocusNode, Focusable};
 pub use clipboard::{copy_to_clipboard, paste_from_clipboard};
 
 // Re-export animation types
-pub use animation::{AnimationController, AnimationStatus, Curve, Tween, SpringAnimation};
+pub use animation::{
+    AnimationController, AnimationStatus, Curve, Tween, SpringAnimation,
+    AnimationSequence, AnimationGroup, DelayedAnimation,
+};
 
 // Re-export style types
 pub use style::{WidgetStyle, ButtonVariant, StyleSheet, SizeVariant};
+
+// Re-export command types
+pub use commands::{Command, CommandHistory};
+
+// Re-export gesture types
+pub use gestures::{GestureRecognizer, GestureEvent, GestureType, GestureState};
 
 pub struct GlassContext {
     pub renderer: renderer::GlassRenderer,
