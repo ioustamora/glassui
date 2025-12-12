@@ -1,6 +1,97 @@
 use glam::{Vec2, Vec4};
 use winit::event::{ElementState, MouseButton};
 use crate::renderer::GlassRenderer;
+use std::cell::RefCell;
+
+// --- Theme System ---
+#[derive(Clone)]
+pub struct Theme {
+    pub primary: Vec4,
+    pub secondary: Vec4,
+    pub accent: Vec4,
+    pub background: Vec4,
+    pub surface: Vec4,
+    pub text: Vec4,
+    pub text_secondary: Vec4,
+    pub border: Vec4,
+    pub hover: Vec4,
+    pub pressed: Vec4,
+    pub success: Vec4,
+    pub error: Vec4,
+    pub warning: Vec4,
+}
+
+impl Default for Theme {
+    fn default() -> Self { Self::cyberpunk() }
+}
+
+impl Theme {
+    pub fn cyberpunk() -> Self {
+        Self {
+            primary: Vec4::new(0.0, 0.8, 1.0, 1.0),
+            secondary: Vec4::new(0.5, 0.0, 1.0, 1.0),
+            accent: Vec4::new(1.0, 0.0, 0.5, 1.0),
+            background: Vec4::new(0.05, 0.05, 0.08, 0.9),
+            surface: Vec4::new(0.1, 0.1, 0.15, 0.8),
+            text: Vec4::new(1.0, 1.0, 1.0, 1.0),
+            text_secondary: Vec4::new(0.7, 0.7, 0.7, 1.0),
+            border: Vec4::new(0.3, 0.3, 0.4, 0.5),
+            hover: Vec4::new(0.2, 0.4, 0.6, 0.8),
+            pressed: Vec4::new(0.0, 0.3, 0.4, 0.8),
+            success: Vec4::new(0.0, 1.0, 0.5, 1.0),
+            error: Vec4::new(1.0, 0.3, 0.3, 1.0),
+            warning: Vec4::new(1.0, 0.8, 0.0, 1.0),
+        }
+    }
+    
+    pub fn dark() -> Self {
+        Self {
+            primary: Vec4::new(0.3, 0.5, 1.0, 1.0),
+            secondary: Vec4::new(0.6, 0.3, 0.9, 1.0),
+            accent: Vec4::new(1.0, 0.5, 0.2, 1.0),
+            background: Vec4::new(0.08, 0.08, 0.1, 0.95),
+            surface: Vec4::new(0.12, 0.12, 0.15, 0.9),
+            text: Vec4::new(0.95, 0.95, 0.95, 1.0),
+            text_secondary: Vec4::new(0.6, 0.6, 0.65, 1.0),
+            border: Vec4::new(0.25, 0.25, 0.3, 0.6),
+            hover: Vec4::new(0.2, 0.3, 0.5, 0.7),
+            pressed: Vec4::new(0.15, 0.25, 0.4, 0.8),
+            success: Vec4::new(0.2, 0.9, 0.4, 1.0),
+            error: Vec4::new(0.9, 0.25, 0.25, 1.0),
+            warning: Vec4::new(0.95, 0.75, 0.1, 1.0),
+        }
+    }
+    
+    pub fn light() -> Self {
+        Self {
+            primary: Vec4::new(0.1, 0.4, 0.8, 1.0),
+            secondary: Vec4::new(0.5, 0.2, 0.7, 1.0),
+            accent: Vec4::new(0.9, 0.3, 0.1, 1.0),
+            background: Vec4::new(0.95, 0.95, 0.97, 0.95),
+            surface: Vec4::new(1.0, 1.0, 1.0, 0.9),
+            text: Vec4::new(0.1, 0.1, 0.1, 1.0),
+            text_secondary: Vec4::new(0.4, 0.4, 0.45, 1.0),
+            border: Vec4::new(0.8, 0.8, 0.85, 0.6),
+            hover: Vec4::new(0.85, 0.9, 0.95, 0.8),
+            pressed: Vec4::new(0.75, 0.85, 0.95, 0.9),
+            success: Vec4::new(0.1, 0.7, 0.3, 1.0),
+            error: Vec4::new(0.8, 0.2, 0.2, 1.0),
+            warning: Vec4::new(0.85, 0.65, 0.0, 1.0),
+        }
+    }
+}
+
+thread_local! {
+    static CURRENT_THEME: RefCell<Theme> = RefCell::new(Theme::default());
+}
+
+pub fn set_theme(theme: Theme) {
+    CURRENT_THEME.with(|t| *t.borrow_mut() = theme);
+}
+
+pub fn get_theme() -> Theme {
+    CURRENT_THEME.with(|t| t.borrow().clone())
+}
 
 pub trait Widget {
     fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2;
@@ -498,7 +589,7 @@ impl Spacer {
 }
 
 impl Widget for Spacer {
-    fn layout(&mut self, origin: Vec2, _max_size: Vec2) -> Vec2 {
+    fn layout(&mut self, _origin: Vec2, _max_size: Vec2) -> Vec2 {
         // Spacer takes requested size, ignores limits? Or clamps?
         // Let's just return size.
         self.size
@@ -1635,3 +1726,484 @@ impl Widget for TabBar {
     }
 }
 
+// --- Modal Dialog System ---
+pub struct Modal {
+    pub position: Vec2,
+    pub size: Vec2,
+    pub content: Box<dyn Widget>,
+    pub visible: bool,
+    pub backdrop_color: Vec4,
+    pub animation_t: f32,
+    pub title: String,
+    pub closable: bool,
+    pub on_close: Option<Box<dyn FnMut()>>,
+}
+
+impl Modal {
+    pub fn new(title: &str, content: Box<dyn Widget>) -> Self {
+        Self {
+            position: Vec2::ZERO,
+            size: Vec2::ZERO,
+            content,
+            visible: false,
+            backdrop_color: Vec4::new(0.0, 0.0, 0.0, 0.7),
+            animation_t: 0.0,
+            title: title.to_string(),
+            closable: true,
+            on_close: None,
+        }
+    }
+    
+    pub fn show(&mut self) { self.visible = true; }
+    pub fn hide(&mut self) { self.visible = false; }
+    
+    pub fn with_closable(mut self, closable: bool) -> Self {
+        self.closable = closable;
+        self
+    }
+}
+
+impl Widget for Modal {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
+        self.position = origin;
+        self.size = max_size;
+        
+        if self.visible {
+            let modal_size = Vec2::new(max_size.x * 0.6, max_size.y * 0.6).min(Vec2::new(600.0, 500.0));
+            let modal_pos = origin + (max_size - modal_size) * 0.5;
+            self.content.layout(modal_pos + Vec2::new(20.0, 50.0), modal_size - Vec2::new(40.0, 70.0));
+        }
+        max_size
+    }
+
+    fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
+        if !self.visible { return false; }
+        
+        // Handle close button
+        if self.closable {
+            let modal_size = self.size.min(Vec2::new(600.0, 500.0)) * 0.6;
+            let modal_pos = self.position + (self.size - modal_size) * 0.5;
+            let close_btn = modal_pos + Vec2::new(modal_size.x - 30.0, 5.0);
+            let in_close = mouse_pos.x >= close_btn.x && mouse_pos.x <= close_btn.x + 25.0 &&
+                          mouse_pos.y >= close_btn.y && mouse_pos.y <= close_btn.y + 25.0;
+            
+            if let winit::event::Event::WindowEvent { event: winit::event::WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. }, .. } = event {
+                if in_close {
+                    self.hide();
+                    if let Some(cb) = &mut self.on_close { cb(); }
+                    return true;
+                }
+            }
+        }
+        
+        // Trap focus inside modal
+        self.content.handle_event(event, mouse_pos);
+        true // Always consume events when modal is visible
+    }
+
+    fn update(&mut self, dt: f32) {
+        let target = if self.visible { 1.0 } else { 0.0 };
+        self.animation_t += (target - self.animation_t) * 10.0 * dt;
+        if self.visible { self.content.update(dt); }
+    }
+
+    fn render(&self, renderer: &mut GlassRenderer) {
+        if self.animation_t < 0.01 { return; }
+        
+        let theme = get_theme();
+        
+        // Backdrop
+        let mut backdrop = self.backdrop_color;
+        backdrop.w *= self.animation_t;
+        renderer.draw_rect(self.position, self.size, backdrop);
+        
+        // Modal panel
+        let modal_size = self.size.min(Vec2::new(600.0, 500.0)) * 0.6;
+        let modal_pos = self.position + (self.size - modal_size) * 0.5;
+        let scale = 0.9 + self.animation_t * 0.1;
+        let scaled_size = modal_size * scale;
+        let scaled_pos = modal_pos + (modal_size - scaled_size) * 0.5;
+        
+        renderer.draw_rect(scaled_pos, scaled_size, theme.surface);
+        renderer.draw_rect(scaled_pos, Vec2::new(scaled_size.x, 40.0), theme.background);
+        renderer.draw_text(&self.title, scaled_pos + Vec2::new(15.0, 10.0), 18.0, theme.text);
+        
+        if self.closable {
+            renderer.draw_text("✕", scaled_pos + Vec2::new(scaled_size.x - 25.0, 10.0), 18.0, theme.text_secondary);
+        }
+        
+        self.content.render(renderer);
+    }
+}
+
+// --- Grid Layout ---
+pub struct Grid {
+    pub position: Vec2,
+    pub size: Vec2,
+    pub children: Vec<Box<dyn Widget>>,
+    pub columns: usize,
+    pub gap: f32,
+    pub padding: f32,
+}
+
+impl Grid {
+    pub fn new(columns: usize) -> Self {
+        Self {
+            position: Vec2::ZERO, size: Vec2::ZERO,
+            children: Vec::new(), columns: columns.max(1),
+            gap: 10.0, padding: 10.0,
+        }
+    }
+    
+    pub fn add_child(mut self, child: Box<dyn Widget>) -> Self {
+        self.children.push(child);
+        self
+    }
+    
+    pub fn with_gap(mut self, gap: f32) -> Self { self.gap = gap; self }
+}
+
+impl Widget for Grid {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
+        self.position = origin;
+        let cols = self.columns.max(1);
+        let content_width = max_size.x - self.padding * 2.0;
+        let cell_width = (content_width - (cols - 1) as f32 * self.gap) / cols as f32;
+        
+        let mut max_row_height = 0.0f32;
+        let mut total_height = self.padding;
+        let child_count = self.children.len();
+        
+        for (i, child) in self.children.iter_mut().enumerate() {
+            let col = i % cols;
+            let x = origin.x + self.padding + col as f32 * (cell_width + self.gap);
+            let y = origin.y + total_height;
+            
+            let child_size = child.layout(Vec2::new(x, y), Vec2::new(cell_width, 10000.0));
+            max_row_height = max_row_height.max(child_size.y);
+            
+            if col == cols - 1 || i == child_count - 1 {
+                total_height += max_row_height + self.gap;
+                max_row_height = 0.0;
+            }
+        }
+        
+        self.size = Vec2::new(max_size.x, total_height + self.padding);
+        self.size
+    }
+
+    fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
+        self.children.iter_mut().any(|c| c.handle_event(event, mouse_pos))
+    }
+    fn update(&mut self, dt: f32) { self.children.iter_mut().for_each(|c| c.update(dt)); }
+    fn render(&self, renderer: &mut GlassRenderer) { self.children.iter().for_each(|c| c.render(renderer)); }
+}
+
+// --- Flex Layout ---
+#[derive(Clone, Copy, PartialEq)]
+pub enum FlexDirection { Row, Column }
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum FlexJustify { Start, Center, End, SpaceBetween, SpaceAround }
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum FlexAlign { Start, Center, End, Stretch }
+
+pub struct Flex {
+    pub position: Vec2,
+    pub size: Vec2,
+    pub children: Vec<Box<dyn Widget>>,
+    pub direction: FlexDirection,
+    pub justify: FlexJustify,
+    pub align: FlexAlign,
+    pub gap: f32,
+    pub padding: f32,
+}
+
+impl Flex {
+    pub fn new(direction: FlexDirection) -> Self {
+        Self {
+            position: Vec2::ZERO, size: Vec2::ZERO,
+            children: Vec::new(), direction,
+            justify: FlexJustify::Start, align: FlexAlign::Start,
+            gap: 10.0, padding: 10.0,
+        }
+    }
+    
+    pub fn row() -> Self { Self::new(FlexDirection::Row) }
+    pub fn column() -> Self { Self::new(FlexDirection::Column) }
+    pub fn add_child(mut self, child: Box<dyn Widget>) -> Self { self.children.push(child); self }
+    pub fn with_justify(mut self, j: FlexJustify) -> Self { self.justify = j; self }
+    pub fn with_align(mut self, a: FlexAlign) -> Self { self.align = a; self }
+    pub fn with_gap(mut self, g: f32) -> Self { self.gap = g; self }
+}
+
+impl Widget for Flex {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
+        self.position = origin;
+        let is_row = self.direction == FlexDirection::Row;
+        let content_area = max_size - Vec2::splat(self.padding * 2.0);
+        
+        // First pass: measure children
+        let mut child_sizes = Vec::new();
+        let mut total_main = 0.0f32;
+        let mut max_cross = 0.0f32;
+        
+        for child in &mut self.children {
+            let size = child.layout(origin, content_area);
+            let (main, cross) = if is_row { (size.x, size.y) } else { (size.y, size.x) };
+            total_main += main;
+            max_cross = max_cross.max(cross);
+            child_sizes.push(size);
+        }
+        
+        let main_axis = if is_row { content_area.x } else { content_area.y };
+        let total_gaps = self.gap * (self.children.len().saturating_sub(1)) as f32;
+        let free_space = (main_axis - total_main - total_gaps).max(0.0);
+        
+        // Calculate start offset and spacing
+        let (start_offset, item_spacing) = match self.justify {
+            FlexJustify::Start => (0.0, self.gap),
+            FlexJustify::End => (free_space, self.gap),
+            FlexJustify::Center => (free_space / 2.0, self.gap),
+            FlexJustify::SpaceBetween if self.children.len() > 1 => 
+                (0.0, self.gap + free_space / (self.children.len() - 1) as f32),
+            FlexJustify::SpaceAround if !self.children.is_empty() => {
+                let s = free_space / self.children.len() as f32;
+                (s / 2.0, self.gap + s)
+            },
+            _ => (0.0, self.gap),
+        };
+        
+        // Second pass: position children
+        let mut cursor = start_offset;
+        for (i, child) in self.children.iter_mut().enumerate() {
+            let size = child_sizes[i];
+            let (main_size, cross_size) = if is_row { (size.x, size.y) } else { (size.y, size.x) };
+            
+            let cross_offset = match self.align {
+                FlexAlign::Start => 0.0,
+                FlexAlign::End => max_cross - cross_size,
+                FlexAlign::Center => (max_cross - cross_size) / 2.0,
+                FlexAlign::Stretch => 0.0,
+            };
+            
+            let pos = if is_row {
+                Vec2::new(origin.x + self.padding + cursor, origin.y + self.padding + cross_offset)
+            } else {
+                Vec2::new(origin.x + self.padding + cross_offset, origin.y + self.padding + cursor)
+            };
+            
+            child.layout(pos, size);
+            cursor += main_size + item_spacing;
+        }
+        
+        self.size = if is_row {
+            Vec2::new(max_size.x, max_cross + self.padding * 2.0)
+        } else {
+            Vec2::new(max_cross + self.padding * 2.0, cursor - item_spacing + self.padding * 2.0)
+        };
+        self.size
+    }
+
+    fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
+        self.children.iter_mut().any(|c| c.handle_event(event, mouse_pos))
+    }
+    fn update(&mut self, dt: f32) { self.children.iter_mut().for_each(|c| c.update(dt)); }
+    fn render(&self, renderer: &mut GlassRenderer) { self.children.iter().for_each(|c| c.render(renderer)); }
+}
+
+// --- Drag and Drop System ---
+thread_local! {
+    static DRAG_DATA: RefCell<Option<String>> = RefCell::new(None);
+}
+
+pub fn set_drag_data(data: Option<String>) {
+    DRAG_DATA.with(|d| *d.borrow_mut() = data);
+}
+
+pub fn get_drag_data() -> Option<String> {
+    DRAG_DATA.with(|d| d.borrow().clone())
+}
+
+pub struct DragSource {
+    pub position: Vec2,
+    pub size: Vec2,
+    pub child: Box<dyn Widget>,
+    pub data: String,
+    pub dragging: bool,
+    pub drag_offset: Vec2,
+}
+
+impl DragSource {
+    pub fn new(child: Box<dyn Widget>, data: &str) -> Self {
+        Self {
+            position: Vec2::ZERO, size: Vec2::ZERO,
+            child, data: data.to_string(),
+            dragging: false, drag_offset: Vec2::ZERO,
+        }
+    }
+}
+
+impl Widget for DragSource {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
+        self.position = origin;
+        self.size = self.child.layout(origin, max_size);
+        self.size
+    }
+
+    fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
+        let inside = mouse_pos.x >= self.position.x && mouse_pos.x <= self.position.x + self.size.x &&
+                    mouse_pos.y >= self.position.y && mouse_pos.y <= self.position.y + self.size.y;
+        
+        match event {
+            winit::event::Event::WindowEvent { event: winit::event::WindowEvent::MouseInput { state, button: MouseButton::Left, .. }, .. } => {
+                if *state == ElementState::Pressed && inside {
+                    self.dragging = true;
+                    self.drag_offset = mouse_pos - self.position;
+                    set_drag_data(Some(self.data.clone()));
+                    return true;
+                } else if *state == ElementState::Released {
+                    self.dragging = false;
+                }
+            },
+            _ => {}
+        }
+        self.child.handle_event(event, mouse_pos)
+    }
+
+    fn update(&mut self, dt: f32) { self.child.update(dt); }
+    
+    fn render(&self, renderer: &mut GlassRenderer) {
+        if self.dragging {
+            renderer.draw_rect(self.position, self.size, Vec4::new(0.0, 0.8, 1.0, 0.3));
+        }
+        self.child.render(renderer);
+    }
+}
+
+pub struct DropTarget {
+    pub position: Vec2,
+    pub size: Vec2,
+    pub child: Box<dyn Widget>,
+    pub accepts: Vec<String>,
+    pub hovered: bool,
+    pub on_drop: Option<Box<dyn FnMut(String)>>,
+}
+
+impl DropTarget {
+    pub fn new(child: Box<dyn Widget>) -> Self {
+        Self {
+            position: Vec2::ZERO, size: Vec2::ZERO,
+            child, accepts: Vec::new(),
+            hovered: false, on_drop: None,
+        }
+    }
+    
+    pub fn accepts(mut self, pattern: &str) -> Self {
+        self.accepts.push(pattern.to_string());
+        self
+    }
+    
+    pub fn on_drop<F: FnMut(String) + 'static>(mut self, f: F) -> Self {
+        self.on_drop = Some(Box::new(f));
+        self
+    }
+}
+
+impl Widget for DropTarget {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
+        self.position = origin;
+        self.size = self.child.layout(origin, max_size);
+        self.size
+    }
+
+    fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
+        let inside = mouse_pos.x >= self.position.x && mouse_pos.x <= self.position.x + self.size.x &&
+                    mouse_pos.y >= self.position.y && mouse_pos.y <= self.position.y + self.size.y;
+        
+        self.hovered = inside && get_drag_data().is_some();
+        
+        if let winit::event::Event::WindowEvent { event: winit::event::WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. }, .. } = event {
+            if inside {
+                if let Some(data) = get_drag_data() {
+                    let accepted = self.accepts.is_empty() || self.accepts.iter().any(|a| data.contains(a));
+                    if accepted {
+                        if let Some(cb) = &mut self.on_drop { cb(data); }
+                        set_drag_data(None);
+                        return true;
+                    }
+                }
+            }
+        }
+        self.child.handle_event(event, mouse_pos)
+    }
+
+    fn update(&mut self, dt: f32) { self.child.update(dt); }
+    
+    fn render(&self, renderer: &mut GlassRenderer) {
+        if self.hovered {
+            renderer.draw_rect(self.position - Vec2::splat(2.0), self.size + Vec2::splat(4.0), 
+                Vec4::new(0.0, 1.0, 0.5, 0.4));
+        }
+        self.child.render(renderer);
+    }
+}
+
+// --- Accessibility Wrapper ---
+pub struct Accessible {
+    pub position: Vec2,
+    pub size: Vec2,
+    pub child: Box<dyn Widget>,
+    pub label: String,
+    pub role: String,
+    pub focusable: bool,
+    pub focused: bool,
+    pub tab_index: i32,
+}
+
+impl Accessible {
+    pub fn new(child: Box<dyn Widget>, label: &str) -> Self {
+        Self {
+            position: Vec2::ZERO, size: Vec2::ZERO,
+            child, label: label.to_string(),
+            role: "generic".to_string(),
+            focusable: true, focused: false, tab_index: 0,
+        }
+    }
+    
+    pub fn with_role(mut self, role: &str) -> Self { self.role = role.to_string(); self }
+    pub fn with_tab_index(mut self, index: i32) -> Self { self.tab_index = index; self }
+}
+
+impl Widget for Accessible {
+    fn layout(&mut self, origin: Vec2, max_size: Vec2) -> Vec2 {
+        self.position = origin;
+        self.size = self.child.layout(origin, max_size);
+        self.size
+    }
+
+    fn handle_event(&mut self, event: &winit::event::Event<()>, mouse_pos: Vec2) -> bool {
+        // Handle Tab key for focus navigation
+        if let winit::event::Event::WindowEvent { event: winit::event::WindowEvent::KeyboardInput { event: key_event, .. }, .. } = event {
+            if key_event.state.is_pressed() {
+                if let winit::keyboard::Key::Named(winit::keyboard::NamedKey::Tab) = key_event.logical_key {
+                    // Focus management would be handled by a focus manager
+                    return false;
+                }
+            }
+        }
+        self.child.handle_event(event, mouse_pos)
+    }
+
+    fn update(&mut self, dt: f32) { self.child.update(dt); }
+    
+    fn render(&self, renderer: &mut GlassRenderer) {
+        self.child.render(renderer);
+        if self.focused {
+            let theme = get_theme();
+            renderer.draw_rect(self.position - Vec2::splat(2.0), self.size + Vec2::splat(4.0), 
+                Vec4::new(theme.primary.x, theme.primary.y, theme.primary.z, 0.5));
+        }
+    }
+}

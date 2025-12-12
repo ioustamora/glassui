@@ -2,7 +2,14 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use glassui::GlassContext;
-use glassui::widget::{Panel, Button, Label, Slider, Checkbox, Column, Row, Widget, Stack, Align, Alignment, Spacer, Draggable, Resizable, TextInput, ScrollArea, Tooltip, ContextMenuTrigger, MenuItem, Dropdown, TabBar};
+use glassui::widget::{
+    Panel, Button, Label, Slider, Checkbox, Column, Row, Widget, Stack, Align, 
+    Alignment, Spacer, Draggable, Resizable, TextInput, ScrollArea, Tooltip, 
+    ContextMenuTrigger, MenuItem, Dropdown, TabBar,
+    // New widgets
+    Modal, Grid, Flex, FlexDirection, FlexJustify, FlexAlign,
+    DragSource, DropTarget, Accessible, Theme, set_theme, get_theme
+};
 
 fn main() {
     env_logger::init();

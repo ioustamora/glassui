@@ -23,6 +23,8 @@
 | `Align` | Alignment wrapper (Center, TopLeft, BottomLeft) |
 | `Panel` | Container with glass background |
 | `Spacer` | Flexible spacing element |
+| `Grid` | CSS Grid-inspired multi-column layout |
+| `Flex` | Flexbox-style layout with justify/align options |
 
 ### Interactive Widgets
 
@@ -33,6 +35,8 @@
 | `Checkbox` | Toggleable state control |
 | `Label` | Text display |
 | `TextInput` | Editable text field with cursor |
+| `Dropdown` | Expandable selection menu |
+| `TabBar` | Tabbed content container |
 
 ### Advanced Features
 
@@ -43,12 +47,27 @@
 | `ScrollArea` | Scrollable container with content clipping |
 | `Tooltip` | Hover tooltip wrapper |
 | `ContextMenuTrigger` | Right-click context menu wrapper |
+| `Modal` | Dialog overlay with backdrop and animations |
+| `DragSource` | Drag-and-drop source wrapper |
+| `DropTarget` | Drag-and-drop target with callbacks |
+| `Accessible` | Accessibility wrapper with ARIA-like labels |
+
+### Theme System
+
+| Theme | Description |
+|-------|-------------|
+| `Theme::cyberpunk()` | Neon cyan/magenta futuristic theme (default) |
+| `Theme::dark()` | Modern dark mode with blue accents |
+| `Theme::light()` | Clean light theme for accessibility |
 
 ### Interactivity
 
 - **Focus Management**: Z-sorting with click-to-front behavior
 - **Animations**: Smooth hover and press transitions
 - **Keyboard Input**: Full text input support with backspace
+- **Drag-and-Drop**: Inter-widget data transfer system
+- **Accessibility**: Tab navigation and ARIA-like labeling
+
 
 ---
 
