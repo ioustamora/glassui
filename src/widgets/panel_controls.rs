@@ -160,6 +160,15 @@ pub struct ControllablePanel {
     pub show_controls: bool,
     pub selected: bool,
     
+    // Maximize state (double-click)
+    pub maximized: bool,
+    restore_position: Vec2,
+    restore_size: Vec2,
+    
+    // Double-click detection
+    last_click_time: f32,
+    click_count: u8,
+    
     // Drag state
     drag_start: Option<Vec2>,
     drag_start_pos: Vec2,
@@ -198,6 +207,11 @@ impl ControllablePanel {
             ],
             show_controls: false,
             selected: false,
+            maximized: false,
+            restore_position: Vec2::ZERO,
+            restore_size: Vec2::new(300.0, 200.0),
+            last_click_time: 0.0,
+            click_count: 0,
             drag_start: None,
             drag_start_pos: Vec2::ZERO,
             drag_start_size: Vec2::ZERO,
@@ -224,6 +238,11 @@ impl ControllablePanel {
             ],
             show_controls: false,
             selected: false,
+            maximized: false,
+            restore_position: Vec2::ZERO,
+            restore_size: Vec2::new(300.0, 200.0),
+            last_click_time: 0.0,
+            click_count: 0,
             drag_start: None,
             drag_start_pos: Vec2::ZERO,
             drag_start_size: Vec2::ZERO,
@@ -273,6 +292,41 @@ impl ControllablePanel {
     /// Resize by delta
     pub fn resize_by(&mut self, delta: Vec2) {
         self.size = (self.size + delta).clamp(self.min_size, self.max_size);
+    }
+    
+    /// Toggle maximize state (double-click feature)
+    pub fn toggle_maximize(&mut self, screen_size: Vec2) {
+        if self.maximized {
+            // Restore
+            self.position = self.restore_position;
+            self.size = self.restore_size;
+            self.maximized = false;
+        } else {
+            // Save current state and maximize
+            self.restore_position = self.position;
+            self.restore_size = self.size;
+            self.position = Vec2::ZERO;
+            self.size = screen_size;
+            self.maximized = true;
+        }
+        self.update_button_positions();
+    }
+    
+    /// Check double-click and return true if detected
+    fn check_double_click(&mut self, current_time: f32) -> bool {
+        const DOUBLE_CLICK_TIME: f32 = 0.3;  // 300ms
+        
+        if current_time - self.last_click_time < DOUBLE_CLICK_TIME {
+            self.click_count += 1;
+            if self.click_count >= 2 {
+                self.click_count = 0;
+                return true;
+            }
+        } else {
+            self.click_count = 1;
+        }
+        self.last_click_time = current_time;
+        false
     }
     
     /// Update button positions based on panel position

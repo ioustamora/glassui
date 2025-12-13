@@ -29,6 +29,9 @@ pub mod task;         // Task system with notifications
 pub mod workspace;    // Workspace management and layout
 pub mod sound;        // Audio feedback system
 pub mod persistence;  // Save/load workspace state
+pub mod shortcuts;    // Keyboard shortcut management
+pub mod hover;        // Hover effects and animations
+pub mod effects;      // GPU shader effects (glow, blur, glass)
 
 use winit::window::Window;
 // use winit::event::Event;

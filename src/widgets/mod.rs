@@ -98,3 +98,40 @@ mod panel_controls;
 pub use panel_controls::{
     ControllablePanel, PanelControlMode, ControlButton,
 };
+
+mod status;
+pub use status::{
+    StatusBar, StatusItem, 
+    Toast, ToastType, ToastContainer,
+    AgentCard,
+};
+
+mod command_palette;
+pub use command_palette::{
+    Command, CommandPalette,
+};
+
+mod timeline;
+pub use timeline::{
+    Timeline, TimelineEntry, TimelineEntryType,
+};
+
+mod gauges;
+pub use gauges::{
+    AnimatedProgressBar, CircularGauge, MiniSparkline, MetricDisplay, MetricTrend,
+};
+
+mod tabs;
+pub use tabs::{
+    Tab, TabView, TabPosition,
+};
+
+mod tree;
+pub use tree::{
+    FileNode, FileTree,
+};
+
+mod table;
+pub use table::{
+    GridColumn, GridRow, CellValue, SortDirection, DataTable,
+};
