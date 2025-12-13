@@ -6,6 +6,55 @@
 
 ---
 
+## 🚀 v2 Roadmap: Dashboard-First AI Framework
+
+> **Vision:** Build the GUI of the future — a **dashboard-first framework** for **human + AI driven** management interfaces.
+
+### 🎯 Core Goals
+
+| Feature | Description |
+|---------|-------------|
+| **Dashboard Templates** | One-liner AI control centers, data dashboards, task managers |
+| **Reactive Data Binding** | UI automatically reflects data/task state with animations |
+| **AI Hardware Integration** | NPU (Phi Silica), GPU (Ollama), and cloud AI backends |
+| **Process-Per-Panel** | Each panel runs in its own thread/async task |
+| **Workspace Composition** | Auto-layout, tiling, snap-to-grid, swarm organization |
+
+### 🤖 AI-Powered Features
+
+```rust
+// Create an AI dashboard in 10 lines
+let dashboard = Dashboard::new("AI Control Center")
+    .add_panel(AgentStatusGrid::new(&agents))
+    .add_panel(KpiRow::new(&metrics))
+    .add_panel(ChatPanel::new(LocalAiAgent::auto()))
+    .with_theme(Theme::cyberpunk());
+```
+
+### ✨ Futuristic UI Effects
+
+- **Holographic Shimmer** — Iridescent color shifts
+- **Data Aurora** — Flowing gradients reflecting data streams
+- **Pulse Breathing** — Panels pulse based on activity
+- **Morphing Containers** — Liquid/glitch shape transitions
+- **Spatial Audio** — Sound as first-class UI element
+
+### 📊 Reactive Animations
+
+```rust
+// Color changes based on system load
+panel.bind_map(Property::Color, &cpu_load, |v| {
+    if *v > 0.8 { Color::RED }
+    else if *v > 0.5 { Color::YELLOW }
+    else { Color::GREEN }
+});
+
+// Celebrate on task completion
+task_card.on_state_change(TaskState::Complete, Animation::confetti());
+```
+
+---
+
 ## ✨ Features
 
 ### 🎨 Rendering Engine

@@ -82,3 +82,19 @@ pub use richtext::{
 // Re-export video widgets
 pub use video::VideoPlayer;
 
+// === GlassUI v2 Live Widgets ===
+mod live;
+pub use live::{
+    LivePanel, LiveLabel, KpiCard,
+    TextSource, ValueSource, Trend,
+};
+
+mod chat;
+pub use chat::{
+    ChatMessageWidget, ChatView, PromptInput,
+};
+
+mod panel_controls;
+pub use panel_controls::{
+    ControllablePanel, PanelControlMode, ControlButton,
+};
