@@ -12,6 +12,8 @@ mod overlays;
 mod advanced;
 mod data;
 mod media;
+mod charts;
+mod richtext;
 
 // Re-export core types
 pub use core::{Theme, Widget, set_theme, get_theme, easing};
@@ -62,4 +64,16 @@ pub use data::{
 // Re-export media widgets
 pub use media::{
     Image, ImageSource, BoxFit, Icon,
+};
+
+// Re-export chart widgets
+pub use charts::{
+    LineChart, BarChart, PieChart, Sparkline,
+    DataPoint, DataSeries, ChartConfig, BarOrientation,
+};
+
+// Re-export rich text widgets
+pub use richtext::{
+    RichText, RichTextEditor, TextSpan, SpanStyle,
+    FontWeight, TextDecoration,
 };
