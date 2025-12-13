@@ -14,6 +14,7 @@ mod data;
 mod media;
 mod charts;
 mod richtext;
+mod video;
 
 // Re-export core types
 pub use core::{Theme, Widget, set_theme, get_theme, easing};
@@ -77,3 +78,7 @@ pub use richtext::{
     RichText, RichTextEditor, TextSpan, SpanStyle,
     FontWeight, TextDecoration,
 };
+
+// Re-export video widgets
+pub use video::VideoPlayer;
+

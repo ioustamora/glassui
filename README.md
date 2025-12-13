@@ -1,58 +1,157 @@
 # GlassUI
 
-**GlassUI** is a futuristic, GPU-accelerated UI library for Rust, built on top of `winit` and `wgpu`. It provides **True Glassmorphism** with real-time background blurring, smooth animations, and a comprehensive widget system.
+> **⚠️ Active Development** — GlassUI is under heavy development. APIs may change frequently.
+
+**GlassUI** is a futuristic, GPU-accelerated **Reactive Application Development (RAD)** framework for Rust, built on `winit` and `wgpu`. It provides **True Glassmorphism** with real-time background blurring, spring-based animations, gesture recognition, and a comprehensive modular widget system.
 
 ---
 
 ## ✨ Features
 
-### Rendering
+### 🎨 Rendering Engine
 
 - **True Glassmorphism**: Dual-pass Compute Shader for real-time separable Gaussian blur
 - **GPU Acceleration**: Fully powered by `wgpu` (Vulkan, Metal, DX12, WebGPU)
 - **Text Rendering**: Dynamic font atlas using `ab_glyph`
 - **Batched Rendering**: Efficient draw call batching with scissor rect support
 
-### Layout System
+### 📐 Layout System
 
 | Widget | Description |
 |--------|-------------|
 | `Row` | Horizontal layout container |
 | `Column` | Vertical layout container |
 | `Stack` | Z-layered overlay container |
-| `Align` | Alignment wrapper (Center, TopLeft, BottomLeft) |
+| `Align` | Alignment wrapper (Center, TopLeft, BottomLeft, etc.) |
 | `Panel` | Container with glass background |
 | `Spacer` | Flexible spacing element |
 | `Grid` | CSS Grid-inspired multi-column layout |
 | `Flex` | Flexbox-style layout with justify/align options |
 
-### Interactive Widgets
+### 🎛️ Control Widgets
 
 | Widget | Description |
 |--------|-------------|
 | `Button` | Animated buttons with hover/press effects |
 | `Slider` | Smooth draggable value slider |
 | `Checkbox` | Toggleable state control |
-| `Label` | Text display |
-| `TextInput` | Editable text field with cursor |
-| `Dropdown` | Expandable selection menu |
-| `TabBar` | Tabbed content container |
+| `Toggle` | iOS-style toggle switch |
+| `RadioGroup` | Mutually exclusive option selection |
+| `NumberInput` | Numeric input with increment/decrement |
+| `ProgressBar` | Visual progress indicator |
 
-### Advanced Features
+### ⌨️ Input Widgets
+
+| Widget | Description |
+|--------|-------------|
+| `Label` | Text display |
+| `TextInput` | Editable text field with cursor and clipboard |
+| `Dropdown` | Expandable selection menu |
+| `DatePicker` | Calendar-based date selection |
+| `RichTextEditor` | Multi-style text editing |
+
+### 📊 Data Visualization
+
+| Widget | Description |
+|--------|-------------|
+| `Table` | Sortable data table with columns |
+| `ListView` | Virtualized scrollable list |
+| `TreeView` | Hierarchical expandable tree |
+| `LineChart` | Line graph visualization |
+| `BarChart` | Horizontal/vertical bar charts |
+| `PieChart` | Circular data representation |
+| `Sparkline` | Compact inline charts |
+
+### 🖼️ Media Widgets
+
+| Widget | Description |
+|--------|-------------|
+| `Image` | Image display with multiple fit modes |
+| `Icon` | Scalable icon rendering |
+| `RichText` | Styled text with spans |
+| `VideoPlayer` | Video playback with controls and seek bar |
+
+### 📦 Container Widgets
+
+| Widget | Description |
+|--------|-------------|
+| `ScrollArea` | Scrollable container with content clipping |
+| `TabBar` | Tabbed content container |
+| `Modal` | Dialog overlay with backdrop and animations |
+
+### 🔧 Advanced Widgets
 
 | Widget | Description |
 |--------|-------------|
 | `Draggable` | Wrapper for movable elements (windows) |
 | `Resizable` | Wrapper for resizable elements with handle |
-| `ScrollArea` | Scrollable container with content clipping |
 | `Tooltip` | Hover tooltip wrapper |
 | `ContextMenuTrigger` | Right-click context menu wrapper |
-| `Modal` | Dialog overlay with backdrop and animations |
-| `DragSource` | Drag-and-drop source wrapper |
-| `DropTarget` | Drag-and-drop target with callbacks |
-| `Accessible` | Accessibility wrapper with ARIA-like labels |
+| `HeroScope` | Shared element transition wrapper |
 
-### Theme System
+---
+
+## 🎬 Animation System
+
+GlassUI features a powerful animation engine:
+
+- **Tween Animations**: Property interpolation with easing curves
+- **Spring Animations**: Physics-based spring dynamics
+- **Animation Sequences**: Chain multiple animations
+- **Animation Groups**: Run animations in parallel
+- **Delayed Animations**: Schedule animations for later
+- **Built-in Curves**: Linear, EaseIn, EaseOut, EaseInOut, Bounce, Elastic, etc.
+
+```rust
+use glassui::{Tween, Curve, SpringAnimation};
+
+// Tween animation
+let fade_in = Tween::new(0.0, 1.0, 0.3, Curve::EaseOut);
+
+// Spring animation
+let spring = SpringAnimation::new(0.0, 100.0, 300.0, 0.7); // stiffness, damping
+```
+
+---
+
+## 🦸 Hero Transitions
+
+Smooth shared element transitions between views:
+
+- **HeroScope**: Widget wrapper that marks elements for transitions
+- **HeroController**: Manages and coordinates active transitions
+- **HeroFlight**: Active transition with position/size/opacity interpolation
+
+```rust
+use glassui::{HeroScope, HeroController, HeroId, HeroRect};
+
+// Mark elements with matching IDs
+let thumbnail = HeroScope::new("avatar", Box::new(Image::new(...)));
+
+// Trigger transition
+let mut controller = HeroController::new();
+controller.start_flight(
+    HeroId::new("avatar"),
+    source_bounds,
+    destination_bounds,
+);
+```
+
+---
+
+## 👆 Gesture Recognition
+
+Full touch and pointer gesture support:
+
+- **Tap / Double Tap**: Click detection
+- **Long Press**: Hold detection with duration
+- **Pan**: Drag with velocity tracking
+- **Pinch**: Two-finger scale gesture
+- **Rotation**: Two-finger rotate gesture
+
+---
+
+## 🎨 Theme System
 
 | Theme | Description |
 |-------|-------------|
@@ -60,14 +159,25 @@
 | `Theme::dark()` | Modern dark mode with blue accents |
 | `Theme::light()` | Clean light theme for accessibility |
 
-### Interactivity
+### CSS-like Styling
 
-- **Focus Management**: Z-sorting with click-to-front behavior
-- **Animations**: Smooth hover and press transitions
-- **Keyboard Input**: Full text input support with backspace
-- **Drag-and-Drop**: Inter-widget data transfer system
-- **Accessibility**: Tab navigation and ARIA-like labeling
+```rust
+use glassui::{WidgetStyle, ButtonVariant, SizeVariant};
 
+let style = WidgetStyle::new()
+    .variant(ButtonVariant::Primary)
+    .size(SizeVariant::Large);
+```
+
+---
+
+## ⌨️ Framework Features
+
+- **Focus Management**: Tab navigation and Z-sorting with click-to-front
+- **Clipboard Support**: Cross-platform copy/paste via `arboard`
+- **Undo/Redo**: Command pattern with history
+- **Accessibility**: ARIA-like labeling for screen readers
+- **Constraint Layout**: Flexible box constraints system
 
 ---
 
@@ -81,17 +191,10 @@
 ### Running the Demo
 
 ```sh
-cd glassui
 cargo run --release
 ```
 
-The demo showcases a "Glass OS" dashboard with:
-
-- Draggable windows
-- Resizable panels
-- Scrollable log viewer
-- Context menus
-- Interactive controls
+The demo showcases a "Glass OS" dashboard with draggable windows, resizable panels, scrollable content, context menus, and interactive controls.
 
 ---
 
@@ -99,23 +202,22 @@ The demo showcases a "Glass OS" dashboard with:
 
 ```rust
 use glassui::GlassContext;
-use glassui::widget::{
+use glassui::widgets::{
     Panel, Column, Row, Button, Label, Slider, Checkbox,
     Stack, Align, Alignment, Draggable, Resizable,
-    TextInput, ScrollArea, Tooltip, ContextMenuTrigger, MenuItem
+    TextInput, ScrollArea, Tooltip, ContextMenuTrigger, MenuItem,
+    ProgressBar, Toggle, LineChart, DataSeries, DataPoint,
 };
 
-// Create UI hierarchy
+// Create UI with new widgets
 let content = Column::new()
-    .add_child(Box::new(Label::new("GlassUI Demo")))
+    .add_child(Box::new(Label::new("GlassUI RAD Framework")))
+    .add_child(Box::new(ProgressBar::new(0.75)))
+    .add_child(Box::new(Toggle::new("Dark Mode", true)))
     .add_child(Box::new(Slider::new(0.5)))
-    .add_child(Box::new(Checkbox::new("Enable Feature", true)))
     .add_child(Box::new(TextInput::new("Enter text...")))
     .add_child(Box::new(Row::new()
-        .add_child(Box::new(Tooltip::new(
-            Box::new(Button::new("Save")),
-            "Save changes"
-        )))
+        .add_child(Box::new(Button::new("Save")))
         .add_child(Box::new(Button::new("Cancel")))
     ));
 
@@ -123,28 +225,9 @@ let window = Panel::new(Box::new(content))
     .with_color(Vec4::new(0.1, 0.1, 0.15, 0.4))
     .with_fill(true);
 
-// Make it draggable and resizable
 let interactive_window = Draggable::new(Box::new(
     Resizable::new(Box::new(window), Vec2::new(400.0, 300.0))
 ));
-
-// Add context menu
-let with_menu = ContextMenuTrigger::new(
-    Box::new(interactive_window),
-    vec![
-        MenuItem::new("Refresh"),
-        MenuItem::new("Close"),
-    ]
-);
-
-let mut root = Stack::new()
-    .add_child(Box::new(Align::new(Alignment::Center, Box::new(with_menu))));
-
-// In event loop:
-context.update(0.016);
-root.update(0.016);
-root.layout(Vec2::ZERO, Vec2::new(width, height));
-context.render(&mut root);
 ```
 
 ---
@@ -171,17 +254,6 @@ context.render(&mut root);
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Rendering Pipeline
-
-1. **Scene Pass**: Renders animated background to `Rgba8Unorm` texture
-2. **Blur Pass**: Two-pass separable Gaussian blur via Compute Shader
-3. **Composite Pass**:
-   - Draw sharp background
-   - Iterate render batches with scissor rects
-   - Draw glass instances sampling blurred texture
-   - Draw text overlay
-   - Draw tooltips (deferred)
-
 ---
 
 ## 📁 Project Structure
@@ -189,94 +261,43 @@ context.render(&mut root);
 ```text
 glassui/
 ├── src/
-│   ├── lib.rs          # Library exports and GlassContext
-│   ├── main.rs         # Demo application
-│   ├── renderer.rs     # wgpu rendering engine
-│   ├── text.rs         # Font atlas and text rendering
-│   ├── widget.rs       # All widget implementations
+│   ├── lib.rs           # Library exports and GlassContext
+│   ├── main.rs          # Demo application
+│   ├── renderer.rs      # wgpu rendering engine
+│   ├── text.rs          # Font atlas and text rendering
+│   ├── animation.rs     # Animation system (tweens, springs)
+│   ├── gestures.rs      # Gesture recognition
+│   ├── focus.rs         # Focus management
+│   ├── clipboard.rs     # Clipboard support
+│   ├── accessibility.rs # Screen reader support
+│   ├── commands.rs      # Undo/redo command pattern
+│   ├── style.rs         # CSS-like styling
+│   ├── layout.rs        # Constraint-based layout
+│   ├── state.rs         # State management
+│   ├── property.rs      # Reactive properties
+│   ├── macros.rs        # Declarative widget macros
+│   ├── widget.rs        # Legacy widget module
+│   ├── widgets/         # Modular widget system
+│   │   ├── core.rs      # Theme, Widget trait
+│   │   ├── layout.rs    # Layout containers
+│   │   ├── controls.rs  # Buttons, sliders, etc.
+│   │   ├── input.rs     # Text input, dropdown, date picker
+│   │   ├── containers.rs# ScrollArea, TabBar
+│   │   ├── overlays.rs  # Tooltip, Modal, ContextMenu
+│   │   ├── advanced.rs  # Draggable, Resizable
+│   │   ├── premium.rs   # ProgressBar, Toggle, RadioGroup
+│   │   ├── data.rs      # Table, ListView, TreeView
+│   │   ├── charts.rs    # LineChart, BarChart, PieChart
+│   │   ├── media.rs     # Image, Icon
+│   │   └── richtext.rs  # RichText, RichTextEditor
 │   └── shaders/
-│       ├── bg.wgsl     # Background shader
-│       ├── blur.wgsl   # Gaussian blur compute shader
-│       ├── glass.wgsl  # Glass panel shader
-│       └── text.wgsl   # Text rendering shader
+│       ├── bg.wgsl      # Background shader
+│       ├── blur.wgsl    # Gaussian blur compute shader
+│       ├── composite.wgsl # Composite pass shader
+│       ├── glass.wgsl   # Glass panel shader
+│       └── text.wgsl    # Text rendering shader
 ├── Cargo.toml
 └── README.md
-```
-
----
-
-## 🎨 Widget Reference
-
-### Layout Widgets
-
-```rust
-// Vertical layout
-Column::new()
-    .add_child(Box::new(widget1))
-    .add_child(Box::new(widget2))
-
-// Horizontal layout
-Row::new()
-    .add_child(Box::new(widget1))
-    .add_child(Box::new(widget2))
-
-// Overlay stack (last child on top)
-Stack::new()
-    .add_child(Box::new(background))
-    .add_child(Box::new(foreground))
-
-// Alignment wrapper
-Align::new(Alignment::Center, Box::new(child))
-```
-
-### Input Widgets
-
-```rust
-// Button with custom size (200x50 default)
-Button::new("Click Me")
-
-// Slider (0.0 to 1.0)
-Slider::new(0.5)
-
-// Checkbox with label
-Checkbox::new("Enable", true)
-
-// Text input
-TextInput::new("Placeholder...")
-```
-
-### Container Widgets
-
-```rust
-// Glass panel
-Panel::new(Box::new(content))
-    .with_color(Vec4::new(r, g, b, a))
-    .with_fill(true)
-
-// Scrollable area
-ScrollArea::new(Box::new(tall_content))
-
-// Draggable wrapper
-Draggable::new(Box::new(window))
-
-// Resizable wrapper
-Resizable::new(Box::new(panel), Vec2::new(400.0, 300.0))
-```
-
-### Overlay Widgets
-
-```rust
-// Tooltip (shows after 0.5s hover)
-Tooltip::new(Box::new(button), "Helpful text")
-
-// Context menu (right-click)
-ContextMenuTrigger::new(
-    Box::new(target),
-    vec![
-        MenuItem::new("Action 1"),
-        MenuItem::new("Action 2"),
-    ]
-)
 ```
 
 ---
@@ -287,9 +308,20 @@ MIT
 
 ---
 
+## 💖 Support Development
+
+If you find GlassUI useful, consider supporting its development:
+
+| Network | Wallet Address |
+|---------|----------------|
+| **TRON (TRX/USDT/USDD)** | `TUkJz3XH25BFQx2Ur28jMWYx63EEQyGYVu` |
+
+---
+
 ## 🙏 Acknowledgments
 
-- [wgpu](https://wgpu.rs/) - Modern GPU API
-- [winit](https://github.com/rust-windowing/winit) - Window management
-- [ab_glyph](https://github.com/alexheretic/ab-glyph) - Font rendering
-- [glam](https://github.com/bitshifter/glam-rs) - Math library
+- [wgpu](https://wgpu.rs/) — Modern GPU API
+- [winit](https://github.com/rust-windowing/winit) — Window management
+- [ab_glyph](https://github.com/alexheretic/ab-glyph) — Font rendering
+- [glam](https://github.com/bitshifter/glam-rs) — Math library
+- [arboard](https://github.com/1Password/arboard) — Clipboard support

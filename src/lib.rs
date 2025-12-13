@@ -16,6 +16,8 @@ pub mod animation;    // Animation system with curves and springs
 pub mod style;        // CSS-like styling system
 pub mod commands;     // Undo/redo command pattern
 pub mod gestures;     // Touch/pen gesture recognition
+pub mod hero;         // Hero/shared element transitions
+pub mod video;        // Video playback abstraction
 
 use winit::window::Window;
 // use winit::event::Event;
@@ -44,6 +46,12 @@ pub use commands::{Command, CommandHistory};
 
 // Re-export gesture types
 pub use gestures::{GestureRecognizer, GestureEvent, GestureType, GestureState};
+
+// Re-export hero transition types
+pub use hero::{HeroId, HeroController, HeroScope, HeroRect, HeroFlight, SharedElementTransition};
+
+// Re-export video types
+pub use video::{VideoDecoder, VideoFrame, VideoMetadata, VideoSource, VideoError, PlaybackState};
 
 pub struct GlassContext {
     pub renderer: renderer::GlassRenderer,
