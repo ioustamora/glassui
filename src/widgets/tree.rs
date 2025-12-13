@@ -220,11 +220,11 @@ impl Widget for FileTree {
                 ..
             }, .. 
         } = event {
-            if let Some(id) = &self.hovered_id {
-                self.toggle(id);
+            if let Some(id) = self.hovered_id.clone() {
+                self.toggle(&id);
                 self.selected_id = Some(id.clone());
                 if let Some(callback) = &mut self.on_select {
-                    callback(id);
+                    callback(&id);
                 }
                 return true;
             }
